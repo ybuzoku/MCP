@@ -27,7 +27,7 @@ Secondly, and perhaps MOST IMPORTANTLY, the BPB variable I mainly use, is set fo
 my testing on.) To make it work on a 1.44Mb 3.5" system, please change the BPB variable sectrc to 0012h from 0009h (using either a hex 
 editor or assembling it yourself from the source provided).
 
-----------------------------------------------------Instructions for use---------------------------------------------------------------
+----------------------------------------------------Instructions for use--------------------------------------------------------------
 Upon booting from a media with this program as its bootsector, you will be greeted with a welcome message and a prompt as so:
 "? SEG> " 
 Hereupon, you must press exactly 4 keys, to specify the segment in memory you wish to upload your program to, for example b800 (notice 
