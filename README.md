@@ -75,3 +75,6 @@ The source code is heavily commented, so feel free to do with it whatever you wi
 of a project, please acknowledge me as the original writer of whatever code you wish to use.
 Im more than happy to answer any questions about the code and my other projects. You can contact me via my reddit, u/ylli122 or via 
 email (although, try not to spam me please), at ybuzoku@hotmail.co.uk
+
+PS. Before someone complains to me about using ptr directives when copying FROM variables in memory, thats more for me to 
+reference at a quick glance. The compiler honestly doenst care about it so its fair game imo!
