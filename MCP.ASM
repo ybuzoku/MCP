@@ -176,7 +176,7 @@ KEYB	PROC	NEAR
 ;DX - Contains the prepared word for storage
 ;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 k1:
-	cli			;Ensure all memory writes go the right way
+	cld			;Ensure all memory writes go the right way
 	mov di, offset buff	;Point di to the buffer
 	mov cx, 4		;Will do this 4 times
 	mov bx, 0007		;Int 10h properties bh=page, bl=colour 
