@@ -77,4 +77,4 @@ Im more than happy to answer any questions about the code and my other projects.
 email (although, try not to spam me please), at ybuzoku@hotmail.co.uk
 
 PS. Before someone complains to me about using ptr directives when copying FROM variables in memory, thats more for me to 
-reference at a quick glance. MASM honestly doenst care about it so its fair game imo!
+reference at a quick glance. MASM honestly doesnt care about it so its fine imo!
