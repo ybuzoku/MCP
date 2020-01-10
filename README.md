@@ -11,7 +11,7 @@ as I would like. The purpose of this program was to be as tiny as possible and s
 allow you to specify a buffer in RAM, specify which sector on the disk you booted from you wish to start copying from and how many 
 contiguous sectors do you wish to copy. I use an LBA addressing scheme that addresses CHS=(0,0,0) as LBA=0.
 
-----------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
 
 This program was assembled on an IBM PC XT with 256Kb of RAM using MASM 2.0, MS Link 2.0 and converted into a binary file using Symdeb 
 (Seriously one of the best debuggers ive ever used).
@@ -27,7 +27,8 @@ Secondly, and perhaps MOST IMPORTANTLY, the BPB variable I mainly use, is set fo
 my testing on.) To make it work on a 1.44Mb 3.5" system, please change the BPB variable sectrc to 0012h from 0009h (using either a hex 
 editor or assembling it yourself from the source provided).
 
-----------------------------------------------------Instructions for use--------------------------------------------------------------
+----------------------------------------------------Instructions for use------------------------------------------------------
+
 Upon booting from a media with this program as its bootsector, you will be greeted with a welcome message and a prompt as so:
 
 "? SEG> " 
