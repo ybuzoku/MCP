@@ -1,0 +1,504 @@
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-1
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 	 	 	 	;DATE OF FILE WRITE BEGIN: 05/01/20
+ 	 	 	 	;NAME OF PROJECT: MCP - Minimal Control Program
+ 	 	 	 	;NAME OF AUTHOR: Yll Buzoku 
+ 	 	 	 	;Loads an application file of a disk and transf
+	 	 	 	ers control to it!
+ 	 	 	 	;More or less a bootsector program loader
+ 	 	 	 	;Remains in real mode, end user application mus
+	 	 	 	t jump beyond.
+ 	 	 	 	;DOES NOT SET A20!
+ 	 	 	 	;Is compatible with the IBM PC 
+ 	 	 	 	;Error codes are reported by putting the value 
+	 	 	 	in ah and calling fail. 
+ 	 	 	 	;Is so bloody basic, its not even an OS. Its ba
+	 	 	 	rely a layer above Int 13h. 
+ 	 	 	 	;PLEASE BE CAREFUL WHEN INPUTTING VALUES, THERE
+	 	 	 	 IS NO BOUNDS CHECKING!
+ 	 	 	 	
+ 0000	 	 	 	CODE 	SEGMENT
+ 	 	 	 	 	ASSUME	CS:CODE, DS:CODE, ES:CODE, SS:C
+	 	 	 	ODE
+ 7C00	 	 	 	 	ORG	07C00h
+ 7C00	 	 	 	MAIN	PROC	NEAR
+ 7C00	 	 	 	prog_init:
+ 7C00  EB 3C	 	 	 	jmp short start
+ 7C02  90	 	 	   	nop
+ 	 	 	 	;----------------------------------------------
+	 	 	 	-Tables----------------------------------------
+	 	 	 	------
+ 7C03  53 43 50 44 4F 53	    osname: db 'SCPDOSV1'
+       56 31	 	 	
+ 	 	 	 	
+ 	 	 	 	    ;Start of BIOS Parameter Block
+ 	 	 	 	
+ 7C0B  0200	 	 	    bypsec: dw 0200h     ;bytes per sector (200
+	 	 	 	h=512)                  M
+ 7C0D  01	 	 	    secpcl: db 01h       ;sectors per cluster  
+	 	 	 	                        A
+ 7C0E  0001	 	 	    ressec: dw 0001h     ;reserved sectors     
+	 	 	 	                        G
+ 7C10  02	 	 	    numFAT: db 02h       ;number of FATs       
+	 	 	 	                        I
+ 7C11  00E0	 	 	    nortdr: dw 00E0h     ;number of root direct
+	 	 	 	ory entries             C
+ 7C13  0B40	 	 	    nosect: dw 0B40h     ;number of sectors (14
+	 	 	 	40 sectors per side)    N
+ 7C15  F0	 	 	    medesc: db 0F0h      ;media descriptor (f0=
+	 	 	 	FDD)                    U
+ 7C16  0009	 	 	    FATsec: dw 0009h     ;number of sectors per
+	 	 	 	 FAT                    M
+ 7C18  0009	 	 	    sectrc: dw 0009h     ;number of sectors/tra
+	 	 	 	cks                     B
+ 7C1A  0002	 	 	    numhed: dw 0002h     ;number of read/write 
+	 	 	 	heads                   E
+ 7C1C  00 00 00 00	 	    numhid: dd 00000000h ;number of hidden sect
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-2
+	 	 	 	 	 	 	 	01-01-80    
+
+
+	 	 	 	ors                     R
+ 7C20  00 00 00 00	 	    nsecfs: dd 00000000h ;number of "huge" sect
+	 	 	 	ors in the FS (FAT)     S
+ 	 	 	 	
+ 	 	 	 	    ;End of BPB
+ 	 	 	 	
+ 7C24  00	 	 	    ldrvnu: db 00h       ;logical drive number,
+	 	 	 	 80h=first HDD, 00h=1st FDD
+ 7C25  00	 	 	    res1:   db 00h       ;reserved sector 1, BS
+	 	 	 	 reserved, used in boot
+ 7C26  29	 	 	    extsig: db 29h       ;Extended boot signatu
+	 	 	 	re (29h = EBPB signature)
+ 	 	 	 	
+ 	 	 	 	    ;Start of Extended BPB
+ 7C27  0F 0D 2A 1C	 	    sernum: dd 1C2A0D0Fh       ;serial number o
+	 	 	 	f drive
+ 7C2B  4E 4F 20 4E 41 4D	    vollbl: db 'NO NAME    '  ;default volume l
+	 	 	 	abel name
+       45 20 20 20 20	 	
+ 7C36  46 41 54 31 32 20	    fstype: db 'FAT12   '     ;file system type
+       20 20	 	 	
+ 	 	 	 	 	
+ 	 	 	 	;----------------------------------------------
+	 	 	 	-----------------------------------------------
+	 	 	 	------
+ 	 	 	 	
+ 7C3E	 	 	 	start: 
+ 7C3E  FA	 	 	 	cli	 	 	 	;Pause 
+	 	 	 	external interrupts
+ 7C3F  33 C0	 	 	 	xor ax, ax	 	;Nullify ax
+ 7C41  8E D0	 	 	 	mov ss, ax	 	;Set the stack 
+	 	 	 	segment to null
+ 7C43  BC 7C00	 	 	 	mov sp, 07C00h 	;set up stack here
+ 7C46  8E D8	 	 	 	mov ds, ax	 	;Ensure all seg
+	 	 	 	ment regs point to same segment
+ 7C48  8E C0	 	 	 	mov es, ax	 	;Ditto...
+ 7C4A  FB	 	 	 	sti	 	 	 	;Reenab
+	 	 	 	le external interrupts
+ 	 	 	 	
+ 7C4B  52	 	 	 	push dx	 	 	;push dx to be 
+	 	 	 	used for at the end
+ 7C4C  B0 03	 	 	 	mov al, 03h	 	;Selecting a vi
+	 	 	 	deo mode that works on MDA/VGA
+ 7C4E  CD 10	 	 	 	int 10h 	 	;Set video mode
+	 	 	 	!
+ 7C50  BE 7CF1 R	 	 	mov si,	offset welcm	;Select welcome
+	 	 	 	 message
+ 7C53  E8 7DC1 R	 	 	call write	 	;Write message
+ 7C56  BE 7D03 R	 	 	mov si,	offset segm	;Select segment
+	 	 	 	 input message
+ 7C59  E8 7DC1 R	 	 	call write	 	;Write message
+ 7C5C  E8 7D8C R	 	 	call keyb	 	;Call keyboard 
+	 	 	 	proc
+ 7C5F  89 16 7D80 R	 	 	mov word ptr [jmpseg], dx	;mov dx
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-3
+	 	 	 	 	 	 	 	01-01-80    
+
+
+	 	 	 	 into memory
+ 7C63  BE 7D0B R	 	 	mov si, offset offm	;Select offset 
+	 	 	 	input message
+ 7C66  E8 7DC1 R	 	 	call write	 	;Write message
+ 7C69  E8 7D8C R	 	 	call keyb	 	;Call keyboard 
+	 	 	 	proc
+ 7C6C  89 16 7D82 R	 	 	mov word ptr [jmpoff], dx	;mov dx
+	 	 	 	 into memory
+ 7C70  BE 7D15 R	 	 	mov si, offset dskm	;Select Startin
+	 	 	 	g Sector message
+ 7C73  E8 7DC1 R	 	 	call write	 	;Write message
+ 7C76  E8 7D8C R	 	 	call keyb	 	;Call keyboard 
+	 	 	 	proc
+ 7C79  89 16 7D84 R	 	 	mov word ptr [strtsec], dx	;mov dx
+	 	 	 	 into memory
+ 7C7D  BE 7D25 R	 	 	mov si, offset sizem	;Select Number 
+	 	 	 	of sector message
+ 7C80  E8 7DC1 R	 	 	call write	 	;Write message
+ 7C83  E8 7D8C R	 	 	call keyb	 	;Call keyboard 
+	 	 	 	proc
+ 7C86  89 16 7D86 R	 	 	mov word ptr [numsec], dx	;mov dx
+	 	 	 	 into memory
+ 7C8A  BE 7D33 R	 	 	mov si, offset lodm	;move load mess
+	 	 	 	age offset to be written
+ 7C8D  E8 7DC1 R	 	 	call write	 	;Write Loading 
+	 	 	 	message
+ 	 	 	 	
+ 	 	 	 	;-----------------Calculate the CHS rep of the 
+	 	 	 	Logical sector provided----------
+ 7C90  5B	 	 	 	pop bx	 	 	;bring the save
+	 	 	 	d drive number back into bx
+ 7C91  8B 2E 7D84 R	 	 	mov bp, word ptr [strtsec]	;mov in
+	 	 	 	to bp, starting sector, saves for later
+ 	 	 	 	;Sectors	
+ 7C95  8B C5	 	 	 	mov ax, bp	 	;mov into ax fo
+	 	 	 	r modding
+ 7C97  F6 36 7C18 R	 	 	div byte ptr [sectrc]	;divide ax by s
+	 	 	 	ectrc, the low byte portion
+ 7C9B  FE C4	 	 	 	inc ah	 	 	;inc remainder 
+	 	 	 	to get Sectors
+ 7C9D  8A CC	 	 	 	mov cl, ah	 	;move the secto
+	 	 	 	r into cl as needed, Int13h
+ 	 	 	 	;Cylinder
+ 7C9F  A1 7C1A R	 	 	mov ax, word ptr [numhed] ;move the num
+	 	 	 	ber of heads into ax
+ 7CA2  F7 26 7C18 R	 	 	mul word ptr [sectrc]	;multiply ax by
+	 	 	 	 sec/trck
+ 	 	 	 	 	 	 	 	;ax contains th
+	 	 	 	e product of the multiplication
+ 	 	 	 	 	 	 	 	;by product, dx
+	 	 	 	 is now zero, hopefully
+ 7CA6  95	 	 	 	xchg bp, ax	 	;switch ax and 
+	 	 	 	bp
+ 7CA7  F7 F5	 	 	 	div bp	 	 	;can divide by 
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-4
+	 	 	 	 	 	 	 	01-01-80    
+
+
+	 	 	 	bp now
+ 7CA9  8A E8	 	 	 	mov ch, al	 	;move the resul
+	 	 	 	t into ch, Int13h
+ 	 	 	 	;Head
+ 7CAB  8B C5	 	 	 	mov ax, bp	 	;move bp into a
+	 	 	 	x to be divided
+ 7CAD  F6 36 7C18 R	 	 	div byte ptr [sectrc]	;divide ax by s
+	 	 	 	ectrc, the low byte portion
+ 7CB1  32 E4	 	 	 	xor ah, ah	 	;nullify the re
+	 	 	 	mainder
+ 7CB3  F6 36 7C1A R	 	 	div byte ptr [numhed]	;work out now m
+	 	 	 	odulo heads per cylinder
+ 7CB7  8A F4	 	 	 	mov dh, ah	 	;move the remai
+	 	 	 	nder into dh as needed, Int13h
+ 	 	 	 	 	
+ 	 	 	 	;-------Reference equations-------
+ 	 	 	 	;C = LBA ö (HPC x SPT) -> ch
+ 	 	 	 	;H = (LBA ö SPT) mod HPC -> dh
+ 	 	 	 	;S = (LBA mod SPT) + 1 -> cl
+ 	 	 	 	;---------------------------------
+ 	 	 	 	
+ 	 	 	 	;----------Int 13h usage----------
+ 	 	 	 	;cl = Start Sector
+ 	 	 	 	;ch = Start Cylinder
+ 	 	 	 	;dh = Start Head
+ 	 	 	 	;al = # of sectors
+ 	 	 	 	;ah = 02, read sectors to ES:BX
+ 	 	 	 	;---------------------------------
+ 7CB9  BE 0010	 	 	 	mov si, 10h	 	 	;loop c
+	 	 	 	ounter for attempts
+ 7CBC  8A D3	 	 	 	mov dl, bl	 	 	;move t
+	 	 	 	he saved drive number into dl
+ 7CBE  8E 06 7D80 R	 	 	mov es, word ptr [jmpseg]	;move t
+	 	 	 	he segment into the seg reg
+ 7CC2  8B 1E 7D82 R	 	 	mov bx, word ptr [jmpoff]	;move t
+	 	 	 	he offset into BX
+ 7CC6  A1 7D86 R	 	 	mov ax, word ptr [numsec]	;move t
+	 	 	 	he number of sectors into al
+ 7CC9	 	 	 	read_dsk:
+ 7CC9  B4 02	 	 	 	mov ah, 02h	 	 	;Int 13
+	 	 	 	h subfunction
+ 7CCB  CD 13	 	 	 	int 13h	 	 	 	;READ D
+	 	 	 	ISK!
+ 7CCD  73 13	 	 	 	jnc prog_end	 	 	;succes
+	 	 	 	s! Jump to end!
+ 7CCF  32 E4	 	 	 	xor ah, ah	 	 	;Disk r
+	 	 	 	eset 
+ 7CD1  CD 13	 	 	 	int 13h	 	 	 	;Reset 
+	 	 	 	disk!
+ 7CD3  4E	 	 	 	dec si	 	 	 	;decrea
+	 	 	 	se loop counter
+ 7CD4  75 F3	 	 	 	jnz read_dsk	 	 	;Try ag
+	 	 	 	ain until counter 0
+ 	 	 	 	
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-5
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7CD6  BE 7D5E R	 	 	mov si, offset failm	 	;fail m
+	 	 	 	essage prep
+ 7CD9  E8 7DC1 R	 	 	call write	 	 	;write 
+	 	 	 	it
+ 7CDC  33 C0	 	 	 	xor ax, ax	 	 	;int 16
+	 	 	 	h subfunction
+ 7CDE  CD 16	 	 	 	int 16h	 	 	 	;wait f
+	 	 	 	or keypress
+ 7CE0  CD 19	 	 	 	int 19h	 	 	 	;reset 
+	 	 	 	the machine
+ 7CE2	 	 	 	prog_end:
+ 7CE2  8B EB	 	 	 	mov bp, bx	 	 	;save b
+	 	 	 	x in bp, write destroys bx
+ 7CE4  BE 7D40 R	 	 	mov si, offset jmpm	 	;prepar
+	 	 	 	e jump message
+ 7CE7  E8 7DC1 R	 	 	call write	 	 	;write!
+ 7CEA  33 C0	 	 	 	xor ax, ax	 	 	;int 16
+	 	 	 	h subfunction
+ 7CEC  CD 16	 	 	 	int 16h	 	 	 	;wait f
+	 	 	 	or keypress
+ 	 	 	 	
+ 	 	 	 	;	jmp far ptr es:bx	 	;JUMP A
+	 	 	 	WAY! :D 	 	
+ 7CEE  06	 	 	 	push es	 	 	 	;push n
+	 	 	 	ew cs onto stack
+ 7CEF  55	 	 	 	push bp	 	 	 	;push n
+	 	 	 	ew ip onto stack
+ 7CF0  CB	 	 	 	db	0CBh	 	 	;CB=opc
+	 	 	 	ode for far return
+ 	 	 	 	;MASM sucks for far jumps, so manually encoding
+	 	 	 	 the instruction seems
+ 	 	 	 	;the best way to deal with this for now! Yay?
+ 	 	 	 	
+ 	 	 	 	;------------------------------Data Area/Proc A
+	 	 	 	rea---------------------------	
+ 	 	 	 	 	
+ 7CF1  57 65 6C 63 6F 6D	welcm	db	"Welcome to M/CP", 0Ah, 0Dh, 0
+	 	 	 	 	;Welcome message
+       65 20 74 6F 20 4D	
+       2F 43 50 0A 0D 00	
+ 7D03  3F 20 53 45 47 3E	segm	db	"? SEG> ", 0	 	
+ 	 	 	 	 	 	;Give load segment
+       20 00	 	 	
+ 7D0B  0A 0D 3F 20 4F 46	offm	db	0Ah, 0Dh, "? OFF> ",0	
+ 	 	 	 	 	;Give load offset
+       46 3E 20 00	 	
+ 7D15  0A 0D 3F 20 4C 53	dskm	db	0Ah, 0Dh, "? LSctrStrt> ",0
+	 	 	 	 	;Which logical sector to start at?
+       63 74 72 53 74 72	
+       74 3E 20 00	 	
+ 7D25  0A 0D 3F 20 23 20	sizem	db	0Ah, 0Dh, "? # Sctrs> ",0
+	 	 	 	 	;Number of sectors to copy
+       53 63 74 72 73 3E	
+       20 00	 	 	
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-6
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7D33  0A 0D 4C 6F 61 64	lodm	db	0Ah, 0Dh, "Loading...",0
+	 	 	 	 	;Copying
+       69 6E 67 2E 2E 2E	
+       00	 	 	
+ 7D40  20 44 6F 6E 65 2E	jmpm	db	" Done. Strike a key to jmp..."
+	 	 	 	, 0
+       20 53 74 72 69 6B	
+       65 20 61 20 6B 65	
+       79 20 74 6F 20 6A	
+       6D 70 2E 2E 2E 00	
+ 7D5E  20 46 61 69 6C 65	failm	db	" Failed. Strike a key to reset
+	 	 	 	...",0
+       64 2E 20 53 74 72	
+       69 6B 65 20 61 20	
+       6B 65 79 20 74 6F	
+       20 72 65 73 65 74	
+       2E 2E 2E 00	 	
+ 	 	 	 	
+ 7D80  0000	 	 	jmpseg	dw	0000
+ 7D82  0000	 	 	jmpoff	dw	0000
+ 7D84  0000	 	 	strtsec	dw	0000
+ 7D86  0000	 	 	numsec	dw	0000
+ 7D88     04 [	 	 	buff	db	4 dup(?)	;4 key keyboard
+	 	 	 	 buffer 
+                ??	 	
+                    ]	 	
+ 	 	 	 	
+ 7D8C	 	 	 	MAIN	ENDP
+ 	 	 	 	
+ 	 	 	 	;-------------------------------Procs----------
+	 	 	 	--------------------
+ 7D8C	 	 	 	KEYB	PROC	NEAR
+ 	 	 	 	;Warning, destroys ax, bx, cx, dx, si, di,
+ 	 	 	 	;Warning, this function doesnt do bounds checki
+	 	 	 	ng.
+ 	 	 	 	;ALL INPUT MUST BE DONE IN CAPS LOCK
+ 	 	 	 	;Return:
+ 	 	 	 	;DX - Contains the prepared word for storage
+ 	 	 	 	;++++++++++++++++++++++++++++++++++++++++++++++
+	 	 	 	++++++++++++++++++++
+ 7D8C	 	 	 	k1:
+ 7D8C  FA	 	 	 	cli	 	 	;Ensure all mem
+	 	 	 	ory writes go the right way
+ 7D8D  BF 7D88 R	 	 	mov di, offset buff	;Point di to th
+	 	 	 	e buffer
+ 7D90  B9 0004	 	 	 	mov cx, 4	 	;Will do this 4
+	 	 	 	 times
+ 7D93  BB 0007	 	 	 	mov bx, 0007	 	;Int 10h proper
+	 	 	 	ties bh=page, bl=colour 
+ 7D96	 	 	 	k2:
+ 7D96  33 C0	 	 	 	xor ax, ax	 	;Int 16 subfunc
+	 	 	 	tion 0
+ 7D98  CD 16	 	 	 	int 16h	 	 	;Wait for keypr
+	 	 	 	ess and store ASCII=al, SC=ah
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-7
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7D9A  B4 0E	 	 	 	mov ah, 0Eh	 	;Int 10h TTY pr
+	 	 	 	int subfunction
+ 7D9C  CD 10	 	 	 	int 10h	 	 	;Echo char (in 
+	 	 	 	al) to screen
+ 7D9E  2C 30	 	 	 	sub al, 30h	 	;Bring the digi
+	 	 	 	t down, 30h=ASCII 0
+ 7DA0  3C 0A	 	 	 	cmp al, 0Ah	 	;If its less th
+	 	 	 	an 0Ah, then we have a num digit
+ 7DA2  7C 02	 	 	 	jl k3	 	 	;Avoid alpha co
+	 	 	 	nversion
+ 7DA4  2C 27	 	 	 	sub al, 27h	 	;Bring alpha do
+	 	 	 	wn to its correct value 
+ 7DA6	 	 	 	k3:
+ 7DA6  AA	 	 	 	stosb	 	 	;Move al into t
+	 	 	 	he buffer and inc buffer ptr
+ 7DA7  49	 	 	 	dec cx	 	 	;Decrease cx
+ 7DA8  75 EC	 	 	 	jnz k2	 	 	;Keep gwarning 
+	 	 	 	till cx is zero
+ 7DAA	 	 	 	k4:
+ 7DAA  33 D2	 	 	 	xor dx, dx	 	;Nullify dx in 
+	 	 	 	preparation for the word
+ 7DAC  4F	 	 	 	dec di	 	 	;let di point t
+	 	 	 	o the tail of buff and not past
+ 7DAD  57	 	 	 	push di	 	 	;Push di to put
+	 	 	 	 it into si
+ 7DAE  5E	 	 	 	pop si	 	 	;Take the tail 
+	 	 	 	of buff into si
+ 7DAF  FD	 	 	 	std	 	 	;Change directi
+	 	 	 	on of string read (right to left)
+ 7DB0	 	 	 	k5:
+ 7DB0  33 C0	 	 	 	xor ax, ax	 	;Nullify ax to 
+	 	 	 	prepare it for usage each time
+ 7DB2  AC	 	 	 	lodsb	 	 	;mov byte into 
+	 	 	 	al and dec si
+ 7DB3  D3 E0	 	 	 	shl ax, cl	 	;cl starts as b
+	 	 	 	eing zero
+ 7DB5  03 D0	 	 	 	add dx, ax	 	;add the digit 
+	 	 	 	to dx
+ 7DB7  80 C1 04	 	 	 	add cl, 4	 	;Add 4 to cl, t
+	 	 	 	o shift by 4 bits per pass
+ 7DBA  80 F9 10	 	 	 	cmp cl, 10h	 	;have we gone 4
+	 	 	 	 times?
+ 7DBD  75 F1	 	 	 	jne k5	 	 	;If not, go aga
+	 	 	 	in!
+ 7DBF	 	 	 	k6:
+ 7DBF  FC	 	 	 	cld	 	 	;Return directi
+	 	 	 	on to correct
+ 7DC0  C3	 	 	 	ret	 	 	;Return to send
+	 	 	 	er!
+ 7DC1	 	 	 	KEYB	ENDP
+ 	 	 	 	
+ 7DC1	 	 	 	WRITE	PROC	NEAR
+ 	 	 	 	;Warning, destroys registers ax and bx
+ 7DC1	 	 	 	write_start:
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-8
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7DC1  AC	 	 	 	lodsb	 	 	;move into al t
+	 	 	 	he value pointed at by ds:si and inc si
+ 7DC2  84 C0	 	 	 	test al, al	 	;should we exit
+	 	 	 	 (if al = 0)
+ 7DC4  74 09	 	 	 	jz ret_write	;al=0, exit!
+ 7DC6  B4 0E	 	 	 	mov ah, 00eh	;TTY output
+ 7DC8  BB 0007	 	 	 	mov bx, 00007h 	;colour
+ 7DCB  CD 10	 	 	 	int 10h	 	 	;print char
+ 7DCD  EB F2	 	 	 	jmp write_start ;go again!
+ 	 	 	 	
+ 7DCF	 	 	 	ret_write:
+ 7DCF  C3	 	 	 	ret	 	 	 	;return
+	 	 	 	 to next instruction
+ 7DD0	 	 	 	WRITE	ENDP
+ 	 	 	 	
+ 7DFE	 	 	 	 	ORG 	07DFEh	;07C00h + 01FEh bytes 
+ 7DFE  55	 	 	    	db 	055h	;Bootsector signature
+ 7DFF  AA	 	 	    	db 	0AAh
+ 7E00	 	 	 	CODE	ENDS
+ 	 	 	 	 	END	prog_init
+
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	Symbols
+	 	 	 	-1
+	 	 	 	 	 	 	 	01-01-80    
+
+
+Segments and Groups:
+
+	 	N a m e	 	 	Size	Align	Combine	Class
+
+CODE . . . . . . . . . . . . . .	7E00	PARA  	NONE	
+
+Symbols:            
+
+	 	N a m e	 	 	Type	Value	Attr         
+
+BUFF . . . . . . . . . . . . . .	L BYTE 	7D88	CODE	Length =0004
+BYPSEC . . . . . . . . . . . . .	L NEAR 	7C0B	CODE
+DSKM . . . . . . . . . . . . . .	L BYTE 	7D15	CODE
+EXTSIG . . . . . . . . . . . . .	L NEAR 	7C26	CODE
+FAILM. . . . . . . . . . . . . .	L BYTE 	7D5E	CODE
+FATSEC . . . . . . . . . . . . .	L NEAR 	7C16	CODE
+FSTYPE . . . . . . . . . . . . .	L NEAR 	7C36	CODE
+JMPM . . . . . . . . . . . . . .	L BYTE 	7D40	CODE
+JMPOFF . . . . . . . . . . . . .	L WORD 	7D82	CODE
+JMPSEG . . . . . . . . . . . . .	L WORD 	7D80	CODE
+K1 . . . . . . . . . . . . . . .	L NEAR 	7D8C	CODE
+K2 . . . . . . . . . . . . . . .	L NEAR 	7D96	CODE
+K3 . . . . . . . . . . . . . . .	L NEAR 	7DA6	CODE
+K4 . . . . . . . . . . . . . . .	L NEAR 	7DAA	CODE
+K5 . . . . . . . . . . . . . . .	L NEAR 	7DB0	CODE
+K6 . . . . . . . . . . . . . . .	L NEAR 	7DBF	CODE
+KEYB . . . . . . . . . . . . . .	N PROC	7D8C	CODE	Length =0035
+LDRVNU . . . . . . . . . . . . .	L NEAR 	7C24	CODE
+LODM . . . . . . . . . . . . . .	L BYTE 	7D33	CODE
+MAIN . . . . . . . . . . . . . .	N PROC	7C00	CODE	Length =018C
+MEDESC . . . . . . . . . . . . .	L NEAR 	7C15	CODE
+NORTDR . . . . . . . . . . . . .	L NEAR 	7C11	CODE
+NOSECT . . . . . . . . . . . . .	L NEAR 	7C13	CODE
+NSECFS . . . . . . . . . . . . .	L NEAR 	7C20	CODE
+NUMFAT . . . . . . . . . . . . .	L NEAR 	7C10	CODE
+NUMHED . . . . . . . . . . . . .	L NEAR 	7C1A	CODE
+NUMHID . . . . . . . . . . . . .	L NEAR 	7C1C	CODE
+NUMSEC . . . . . . . . . . . . .	L WORD 	7D86	CODE
+OFFM . . . . . . . . . . . . . .	L BYTE 	7D0B	CODE
+OSNAME . . . . . . . . . . . . .	L NEAR 	7C03	CODE
+PROG_END . . . . . . . . . . . .	L NEAR 	7CE2	CODE
+PROG_INIT. . . . . . . . . . . .	L NEAR 	7C00	CODE
+READ_DSK . . . . . . . . . . . .	L NEAR 	7CC9	CODE
+RES1 . . . . . . . . . . . . . .	L NEAR 	7C25	CODE
+RESSEC . . . . . . . . . . . . .	L NEAR 	7C0E	CODE
+RET_WRITE. . . . . . . . . . . .	L NEAR 	7DCF	CODE
+SECPCL . . . . . . . . . . . . .	L NEAR 	7C0D	CODE
+SECTRC . . . . . . . . . . . . .	L NEAR 	7C18	CODE
+SEGM . . . . . . . . . . . . . .	L BYTE 	7D03	CODE
+SERNUM . . . . . . . . . . . . .	L NEAR 	7C27	CODE
+SIZEM. . . . . . . . . . . . . .	L BYTE 	7D25	CODE
+START. . . . . . . . . . . . . .	L NEAR 	7C3E	CODE
+STRTSEC. . . . . . . . . . . . .	L WORD 	7D84	CODE
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	Symbols
+	 	 	 	-2
+	 	 	 	 	 	 	 	01-01-80    
+
+
+VOLLBL . . . . . . . . . . . . .	L NEAR 	7C2B	CODE
+WELCM. . . . . . . . . . . . . .	L BYTE 	7CF1	CODE
+WRITE. . . . . . . . . . . . . .	N PROC	7DC1	CODE	Length =000F
+WRITE_START. . . . . . . . . . .	L NEAR 	7DC1	CODE
+
+48618 Bytes free   
+
+Warning Severe
+Errors	Errors 
+0	0
