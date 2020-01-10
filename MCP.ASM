@@ -6,7 +6,6 @@
 ;Remains in real mode, end user application must jump beyond.
 ;DOES NOT SET A20!
 ;Is compatible with the IBM PC 
-;Error codes are reported by putting the value in ah and calling fail. 
 ;Is so bloody basic, its not even an OS. Its barely a layer above Int 13h. 
 ;PLEASE BE CAREFUL WHEN INPUTTING VALUES, THERE IS NO BOUNDS CHECKING!
 
@@ -105,8 +104,8 @@ start:
 	mov dh, ah		;move the remainder into dh as needed, Int13h
 	
 ;-------Reference equations-------
-;C = LBA ö (HPC x SPT) -> ch
-;H = (LBA ö SPT) mod HPC -> dh
+;C = LBA Ã¶ (HPC x SPT) -> ch
+;H = (LBA Ã¶ SPT) mod HPC -> dh
 ;S = (LBA mod SPT) + 1 -> cl
 ;---------------------------------
 
@@ -215,6 +214,7 @@ KEYB	ENDP
 
 WRITE	PROC	NEAR
 ;Warning, destroys registers ax and bx
+;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 write_start:
 	lodsb			;move into al the value pointed at by ds:si and inc si
 	test al, al		;should we exit (if al = 0)
