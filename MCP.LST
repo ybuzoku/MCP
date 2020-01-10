@@ -12,8 +12,6 @@
 	 	 	 	t jump beyond.
  	 	 	 	;DOES NOT SET A20!
  	 	 	 	;Is compatible with the IBM PC 
- 	 	 	 	;Error codes are reported by putting the value 
-	 	 	 	in ah and calling fail. 
  	 	 	 	;Is so bloody basic, its not even an OS. Its ba
 	 	 	 	rely a layer above Int 13h. 
  	 	 	 	;PLEASE BE CAREFUL WHEN INPUTTING VALUES, THERE
@@ -192,8 +190,8 @@
 	 	 	 	nder into dh as needed, Int13h
  	 	 	 	 	
  	 	 	 	;-------Reference equations-------
- 	 	 	 	;C = LBA ö (HPC x SPT) -> ch
- 	 	 	 	;H = (LBA ö SPT) mod HPC -> dh
+ 	 	 	 	;C = LBA Ã¶ (HPC x SPT) -> ch
+ 	 	 	 	;H = (LBA Ã¶ SPT) mod HPC -> dh
  	 	 	 	;S = (LBA mod SPT) + 1 -> cl
  	 	 	 	;---------------------------------
  	 	 	 	
