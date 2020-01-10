@@ -29,28 +29,43 @@ editor or assembling it yourself from the source provided).
 
 ----------------------------------------------------Instructions for use--------------------------------------------------------------
 Upon booting from a media with this program as its bootsector, you will be greeted with a welcome message and a prompt as so:
+
 "? SEG> " 
+
 Hereupon, you must press exactly 4 keys, to specify the segment in memory you wish to upload your program to, for example b800 (notice 
 lower case!). Once the fourth keypress is completed, the program will then prompt you again, this time for the offset into the segment 
 as so:
+
 "? OFF> "
+
 Here, you must again press exactly 4 keys to specify the offset of the address. Once the fourth keystroke is complete, you will then be 
 prompted as so:
+
 "? LSctrStrt> "
+
 Here you must specify by typing exactly 4 keys again, which logical sector you wish to start copying from. Again, upon completetion of
 the 4 keystroke, you will be prompted with the final message:
+
 "? # Sctrs> "
+
 Here you must specify the number of contiguous sectors you wish to copy, again a four digit number.
 Then you will see the following message:
+
 "Loading... "
+
 Depending on whether the disk drive is responding to your input commands or not, you will either get a message saying:
+
 "Done, Strike a key to jmp..."
+
 or a message saying:
+
 " Failed. Strike a key to reset...".
+
 In both cases a keystroke is required. In the former case, you will then jump to the head of the buffer you specified (so you better 
 make sure the first instruction in the program you have loaded in is indeed code and not data). 
 In the latter case, you will simply trigger Int 19h and soft reboot the system. Should this not work, CTRL+ALT+Del your way back to the 
 beginning.
+
 PLEASE NOTE, when prompted for numerical values, typing fewer than 4 digits and pressing enter WILL NOT work. Be precise and type in 
 exactly 4 digits and if you make a mistake, CTRL+ALT+Del your way back to the start.
 
