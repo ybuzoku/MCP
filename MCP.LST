@@ -1,0 +1,685 @@
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-1
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 	 	 	 	;Version 2, Date of file write start: 11/01/202
+	 	 	 	0
+ 	 	 	 	;NAME OF PROJECT: MCP - Minimal Control Program
+ 	 	 	 	;NAME OF AUTHOR: Yll Buzoku 
+ 	 	 	 	;Loads an application file of a disk and transf
+	 	 	 	ers control to it!
+ 	 	 	 	;More or less a bootsector program loader
+ 	 	 	 	;Remains in real mode, end user application mus
+	 	 	 	t jump beyond.
+ 	 	 	 	;DOES NOT SET A20!
+ 	 	 	 	;Is compatible with the IBM PC  
+ 	 	 	 	;PLEASE BE CAREFUL WHEN INPUTTING VALUES, THERE
+	 	 	 	 IS NO BOUNDS CHECKING!
+ 	 	 	 	
+ 0000	 	 	 	CODE 	SEGMENT
+ 	 	 	 	 	ASSUME	CS:CODE, DS:CODE, ES:CODE, SS:C
+	 	 	 	ODE
+ 7C00	 	 	 	 	ORG	07C00h
+ 	 	 	 	;	ORG	100h	;DEBUG MODE
+ 7C00	 	 	 	MAIN	PROC	NEAR
+ 7C00	 	 	 	prog_init:
+ 7C00  EB 3C	 	 	 	jmp short start
+ 7C02  90	 	 	   	nop
+ 	 	 	 	;----------------------------------------------
+	 	 	 	-Tables----------------------------------------
+	 	 	 	------
+ 7C03  4D 43 50 20 32 2E	    osname: db 'MCP 2.0 '	
+       30 20	 	 	
+ 	 	 	 	    ;Start of BIOS Parameter Block
+ 	 	 	 	
+ 7C0B  0200	 	 	    bypsec: dw 0200h     ;bytes per sector (200
+	 	 	 	h=512)                  M
+ 7C0D  01	 	 	    secpcl: db 01h       ;sectors per cluster  
+	 	 	 	                        A
+ 7C0E  0001	 	 	    ressec: dw 0001h     ;reserved sectors     
+	 	 	 	                        G
+ 7C10  02	 	 	    numFAT: db 02h       ;number of FATs       
+	 	 	 	                        I
+ 7C11  00E0	 	 	    nortdr: dw 00E0h     ;number of root direct
+	 	 	 	ory entries             C
+ 7C13  0B40	 	 	    nosect: dw 0B40h     ;number of sectors (14
+	 	 	 	40 sectors per side)    N
+ 7C15  F0	 	 	    medesc: db 0F0h      ;media descriptor (f0=
+	 	 	 	FDD)                    U
+ 7C16  0009	 	 	    FATsec: dw 0009h     ;number of sectors per
+	 	 	 	 FAT                    M
+ 7C18  0009	 	 	    sectrc: dw 0009h     ;number of sectors/tra
+	 	 	 	cks                     B
+ 7C1A  0002	 	 	    numhed: dw 0002h     ;number of read/write 
+	 	 	 	heads                   E
+ 7C1C  00 00 00 00	 	    numhid: dd 00000000h ;number of hidden sect
+	 	 	 	ors                     R
+ 7C20  00 00 00 00	 	    nsecfs: dd 00000000h ;number of "huge" sect
+	 	 	 	ors in the FS (FAT)     S
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-2
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 	 	 	 	
+ 	 	 	 	    ;End of BPB
+ 	 	 	 	
+ 7C24  00	 	 	    ldrvnu: db 00h       ;logical drive number,
+	 	 	 	 80h=first HDD, 00h=1st FDD
+ 7C25  00	 	 	    res1:   db 00h       ;reserved sector 1, BS
+	 	 	 	 reserved, used in boot
+ 7C26  29	 	 	    extsig: db 29h       ;Extended boot signatu
+	 	 	 	re (29h = EBPB signature)
+ 	 	 	 	
+ 	 	 	 	    ;Start of Extended BPB
+ 7C27  0F 0D 2A 1C	 	    sernum: dd 1C2A0D0Fh       ;serial number o
+	 	 	 	f drive
+ 7C2B  4E 4F 20 4E 41 4D	    vollbl: db 'NO NAME    '  ;default volume l
+	 	 	 	abel name
+       45 20 20 20 20	 	
+ 7C36  46 41 54 31 32 20	    fstype: db 'FAT12   '     ;file system type
+       20 20	 	 	
+ 	 	 	 	 	
+ 	 	 	 	;----------------------------------------------
+	 	 	 	-----------------------------------------------
+	 	 	 	------
+ 	 	 	 	
+ 7C3E	 	 	 	start: 
+ 7C3E  FC	 	 	 	cld	 	 	;Clear Directio
+	 	 	 	n flag	
+ 	 	 	 	;Debug mode
+ 	 	 	 	;	jmp short z1	; TEMP TEMP TEMP TEMP T
+	 	 	 	EMP TEMP TEMP TEMP TEMP
+ 	 	 	 	;Debug mode
+ 7C3F  FA	 	 	 	cli	 	 	;Pause external
+	 	 	 	 interrupts
+ 7C40  33 C0	 	 	 	xor ax, ax	 	;Nullify ax
+ 7C42  8E D0	 	 	 	mov ss, ax	 	;Set the stack 
+	 	 	 	segment to null
+ 7C44  BC 7C00	 	 	 	mov sp, 07C00h 	 	;set up stack h
+	 	 	 	ere
+ 7C47  8E D8	 	 	 	mov ds, ax	 	;Ensure all seg
+	 	 	 	ment regs point to same segment
+ 7C49  8E C0	 	 	 	mov es, ax	 	;Ditto...
+ 7C4B  FB	 	 	 	sti	 	 	;Reenable exter
+	 	 	 	nal interrupts
+ 	 	 	 	 	
+ 	 	 	 	;Sets up Int 20h and clears the variable area, 
+	 	 	 	useful for reentries
+ 	 	 	 	
+ 7C4C  BB 0080	 	 	 	mov bx, 4*20h	;Move IVT entry into bx
+	 	 	 	, Int 20h and 1Bh to recall OS
+ 7C4F  26: C7 07 7C3E R	 	 	mov word ptr es:[bx], offset start
+	 	 	 	 	;Int 20h offset
+ 7C54  26: 89 47 02	 	 	mov word ptr es:[bx + 2], ax	
+ 	 	 	 	 	;Segment
+ 	 	 	 	
+ 7C58	 	 	 	z1:	
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-3
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7C58  B9 000F	 	 	 	mov cx, 15	;Zero vars, buffer area
+	 	 	 	 and prog var
+ 	 	 	 	;	mov di, offset var1
+ 7C5B  BF 0500	 	 	 	mov di, 0500h	;var1
+ 7C5E  F3/ AA	 	 	 	rep stosb	;Clear the area, di poi
+	 	 	 	nts to tail of prog (prog + 1)
+ 	 	 	 	
+ 7C60	 	 	 	z2:
+ 7C60  B9 0003	 	 	 	mov cx, 03h
+ 7C63  BE 7D31 R	 	 	mov si, offset prompt
+ 7C66	 	 	 	z21:
+ 7C66  AC	 	 	 	lodsb	 	 	;Bring char int
+	 	 	 	o al, inc si
+ 7C67  E8 7DCE R	 	 	call print	 	;Print
+ 7C6A  E2 FA	 	 	 	loop z21
+ 	 	 	 	;Get program name (char)
+ 7C6C  33 C0	 	 	 	xor ax, ax	 	;Function to li
+	 	 	 	sten for that keystroke
+ 7C6E  CD 16	 	 	 	int 16h	 	 	;Get the keystr
+	 	 	 	oke!
+ 	 	 	 	
+ 7C70  BF 7D19 R	 	 	mov di, offset lst	;Move the start
+	 	 	 	 of the string into di
+ 7C73  B1 05 90 90	 	 	mov cl, lstl	 	;lstl = length 
+	 	 	 	of list
+ 7C77  F2/ AE	 	 	 	repne scasb
+ 7C79  74 07	 	 	 	je z3	 	 	;Char input is 
+	 	 	 	in list,proceed, else reset
+ 7C7B	 	 	 	fail:
+ 7C7B  B0 07	 	 	 	mov al, 07h	 	;beep
+ 7C7D  E8 7DCE R	 	 	call print	 	;print the beep
+	 	 	 	, obviously
+ 7C80  CD 20	 	 	 	int 20h	 	 	;Fail, restart
+ 7C82	 	 	 	z3:	
+ 7C82  E8 7DCE R	 	 	call print	 	;print program 
+	 	 	 	name/char
+ 	 	 	 	
+ 	 	 	 	;	mov [050Eh], al ;Save al into memory fo
+	 	 	 	r usage later, progvar
+ 	 	 	 	;For some reason, MASM 2.0 doesnt like it. MANU
+	 	 	 	AL ENCODING TIME:
+ 7C85  A2	 	 	 	db 0A2h
+ 7C86  050E	 	 	 	dw 050Eh
+ 	 	 	 	
+ 7C88  33 ED	 	 	 	xor bp, bp	 	;use bp as a ar
+	 	 	 	gument counter
+ 7C8A	 	 	 	z4:
+ 7C8A  33 C0	 	 	 	xor ax, ax
+ 7C8C  CD 16	 	 	 	int 16h	 	 	;Await a space 
+	 	 	 	key
+ 7C8E  3C 20	 	 	 	cmp al, 20h	 	;compare agains
+	 	 	 	t a space key
+ 7C90  75 F8	 	 	 	jne z4	 	 	;not equal, kee
+	 	 	 	p waiting
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-4
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7C92  E8 7DCE R	 	 	call print 	 	;print the spac
+	 	 	 	e key
+ 	 	 	 	
+ 7C95	 	 	 	k0:
+ 	 	 	 	;	mov di, offset buff	;point to head 
+	 	 	 	of buffer
+ 7C95  BF 050A	 	 	 	mov di, 050Ah	 	;buff
+ 	 	 	 	
+ 7C98	 	 	 	KEYB	PROC	NEAR
+ 7C98	 	 	 	k1:
+ 7C98  33 C0	 	 	 	xor ax, ax
+ 7C9A  CD 16	 	 	 	int 16h
+ 7C9C  E8 7DCE R	 	 	call print	 	;print char whi
+	 	 	 	ch has been keyed in
+ 	 	 	 	 	
+ 7C9F  57	 	 	 	push di	 	 	;save di, ie th
+	 	 	 	e increment into buffer
+ 7CA0  BF 7D1E R	 	 	mov di, offset ascii
+ 7CA3  8B DF	 	 	 	mov bx, di	 	;move bx to poi
+	 	 	 	nt at the base of the table
+ 7CA5  B9 0014 90	 	 	mov cx, asciil + 1	;table length +
+	 	 	 	 1 for scasb reasons, grr
+ 7CA9  F2/ AE	 	 	 	repne scasb	 	;Loop and compa
+	 	 	 	re to find a char from table
+ 7CAB  75 CE	 	 	 	jnz fail	 	;Char overflow,
+	 	 	 	 doesnt match to anything in list
+ 	 	 	 	
+ 	 	 	 	;	lea ax, [di - bx]	;Calculate the 
+	 	 	 	offset into the table
+ 7CAD  4F	 	 	 	dec di	 	 	;Dec becuase sc
+	 	 	 	as overincrements di
+ 7CAE  2B FB	 	 	 	sub di, bx	 	;subtract from 
+	 	 	 	di the base of the table
+ 7CB0  8B C7	 	 	 	mov ax, di	 	;ax now contain
+	 	 	 	s the offset into the table
+ 7CB2  5F	 	 	 	pop di	 	 	;Bring back the
+	 	 	 	 position into the buffer
+ 7CB3  83 F9 03	 	 	 	cmp cx, 3	 	;Check if cx is
+	 	 	 	 on the ctrl key section
+ 7CB6  7E 03	 	 	 	jle ctrlkey
+ 7CB8  AA	 	 	 	stosb	 	 	;Store the digi
+	 	 	 	t into the buffer
+ 7CB9  EB DD	 	 	 	jmp k1	 	 	;Repeat
+ 7CBB	 	 	 	ctrlkey:
+ 7CBB  49	 	 	 	dec cx	 	 	;cx = 1, enter 
+	 	 	 	key pressed
+ 7CBC  74 09	 	 	 	jz eparse
+ 7CBE  49	 	 	 	dec cx
+ 7CBF  74 0C	 	 	 	jz parse
+ 	 	 	 	;cx = 0, backspace
+ 7CC1  E8 7DCE R	 	 	call print	 	;print the back
+	 	 	 	space char
+ 7CC4  4F	 	 	 	dec di	 	 	;return to prev
+	 	 	 	ious char position in buffer
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-5
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7CC5  EB D1	 	 	 	jmp k1
+ 7CC7	 	 	 	KEYB	ENDP
+ 7CC7	 	 	 	PWAY	PROC	NEAR
+ 	 	 	 	;This will take whats in the buffer and parse i
+	 	 	 	t, then zero the buffer
+ 	 	 	 	;in prep for the next var entry. Zeroing allows
+	 	 	 	 for less than a full
+ 	 	 	 	;address or number to be entered!
+ 7CC7	 	 	 	eparse:
+ 	 	 	 	;	 	Push the desired value onto the
+	 	 	 	 stack,
+ 	 	 	 	;	 	but use the real value of bp in
+	 	 	 	 proc :D
+ 7CC7  B8 0004	 	 	 	mov ax, 4
+ 7CCA  50	 	 	 	push ax	
+ 7CCB  EB 01	 	 	 	jmp short p1
+ 7CCD	 	 	 	parse:	
+ 7CCD  55	 	 	 	push bp	 	;save to stack number o
+	 	 	 	f args entered
+ 7CCE	 	 	 	p1:
+ 	 	 	 	;	mov di, offset var1
+ 7CCE  BF 0500	 	 	 	mov di, 0500h	;offset var1
+ 	 	 	 	
+ 7CD1  D1 E5	 	 	 	shl bp, 1	;multiply by 2
+ 7CD3  03 FD	 	 	 	add di, bp	;Point di to appropriat
+	 	 	 	e var in varspace
+ 	 	 	 	
+ 7CD5	 	 	 	k4:
+ 7CD5  33 D2	 	 	 	xor dx, dx	;Nullify dx in preparat
+	 	 	 	ion to recieve the word
+ 7CD7  32 C9	 	 	 	xor cl, cl	;Set cl to 0
+ 	 	 	 	;	mov si, offset bufft
+ 7CD9  BE 050D	 	 	 	mov si, 050Dh	;offset bufft
+ 7CDC  FD	 	 	 	std	 	;Change the direction o
+	 	 	 	f string reads
+ 7CDD	 	 	 	k5:
+ 7CDD  33 C0	 	 	 	xor ax, ax	;Nullify ax to prepare 
+	 	 	 	it for usage each time
+ 7CDF  AC	 	 	 	lodsb	 	;mov byte into al and d
+	 	 	 	ec si
+ 7CE0  D3 E0	 	 	 	shl ax, cl	;cl starts as being zer
+	 	 	 	o, then left shifting
+ 7CE2  03 D0	 	 	 	add dx, ax	;add the digit to dx
+ 7CE4  80 C1 04	 	 	 	add cl, 4	;Add 4 to cl to shift b
+	 	 	 	y 1 hex place value per pass
+ 7CE7  80 F9 10	 	 	 	cmp cl, 10h	;Have we gone 4 times?
+ 7CEA  75 F1	 	 	 	jne k5	 	;If not, go again!
+ 	 	 	 	
+ 7CEC  FC	 	 	 	cld	 	;Restore direction of s
+	 	 	 	tring ops
+ 7CED  89 15	 	 	 	mov word ptr [di], dx	;Store the valu
+	 	 	 	e in the appropriate var
+ 	 	 	 	
+ 	 	 	 	;Nullify the buffer in anticipation of the next
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-6
+	 	 	 	 	 	 	 	01-01-80    
+
+
+	 	 	 	 entry
+ 7CEF  B9 0002	 	 	 	mov cx, 2
+ 	 	 	 	;	mov di, offset buff
+ 7CF2  BF 050A	 	 	 	mov di, 050Ah	;buff
+ 7CF5  33 C0	 	 	 	xor ax, ax	 	;buffer entry, 
+	 	 	 	null word
+ 7CF7  F3/ AB	 	 	 	rep stosw
+ 	 	 	 	
+ 7CF9  5D	 	 	 	pop bp	 	;pop count of arguments
+	 	 	 	 entered
+ 7CFA  45	 	 	 	inc bp	 	;increase count of ente
+	 	 	 	red arguments
+ 7CFB  83 FD 05	 	 	 	cmp bp, 05h	;Check number of argume
+	 	 	 	nts entered against max
+ 7CFE  74 02	 	 	 	je prog_sel	;Jump to prog exec if k
+	 	 	 	ey was enter
+ 7D00  EB 93	 	 	 	jmp k0	 	;Get next argument
+ 7D02	 	 	 	PWAY	ENDP
+ 	 	 	 	
+ 7D02	 	 	 	prog_sel:
+ 	 	 	 	;	int 03h	 	;breakpoint 
+ 	 	 	 	;	mov al, byte ptr [050Eh]	;prog
+ 	 	 	 	;MASM 2.0 at it again!
+ 7D02  A0	 	 	 	db 0A0h
+ 7D03  050E	 	 	 	dw 050Eh
+ 7D05  BF 7D19 R	 	 	mov di, offset lst
+ 7D08  AE	 	 	 	scasb
+ 7D09  74 42	 	 	 	je d1
+ 7D0B  AE	 	 	 	scasb
+ 7D0C  74 26	 	 	 	je tedit
+ 7D0E  AE	 	 	 	scasb
+ 7D0F  74 31	 	 	 	je j1	;jump prog
+ 7D11  AE	 	 	 	scasb
+ 7D12  74 67	 	 	 	je sr	;read from disk
+ 7D14  AE	 	 	 	scasb
+ 7D15  74 5E	 	 	 	je sw	;write
+ 7D17  CD 20	 	 	 	int 20h	 	;TO BE REMOVED
+ 	 	 	 	;------------------------------Data Area/Proc A
+	 	 	 	rea---------------------------	
+ 	 	 	 	 	
+ 	 	 	 	 	 	 	;ASCII converted Argume
+	 	 	 	nts/Recommended usage
+ 7D19  64 65 6A 6C 77	 	lst	db	'dejlw'
+ = 0005	 	 	 	lstl	equ	$ - lst
+ 7D1E  30 31 32 33 34 35	ascii	db	"0123456789abcdef", 08h, 20h, 0
+	 	 	 	Dh ;b/space, enter
+       36 37 38 39 61 62	
+       63 64 65 66 08 20	
+       0D	 	 	
+ = 0013	 	 	 	asciil	equ	$ - ascii
+ 7D31  0A 0D 3E	 	 	prompt	db	0Ah, 0Dh, 3Eh	;3Eh = >
+ 	 	 	 	;var1	equ	0500h	 	;Segment
+ 	 	 	 	;var2	equ	0502h	 	;Offset
+ 	 	 	 	;var3	equ	0504h	 	;Drive number
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-7
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 	 	 	 	;var4	equ	0506h	 	;LBA number
+ 	 	 	 	;var5	equ	0508h	 	;Number of sect
+	 	 	 	ors
+ 	 	 	 	;buff	equ	050Ah	 	;4 key keyboard
+	 	 	 	 buffer
+ 	 	 	 	;bufft	equ	050Dh	 	;Split to avoid
+	 	 	 	 using lea above 
+ 	 	 	 	;prog	equ	050Eh	 	;Selected progr
+	 	 	 	am
+ 	 	 	 	;----------------------------------------------
+	 	 	 	------------------------------
+ 7D34	 	 	 	MAIN	ENDP
+ 	 	 	 	
+ 	 	 	 	;-------------------------------Procs----------
+	 	 	 	--------------------
+ 7D34	 	 	 	TEDIT	PROC	NEAR
+ 	 	 	 	;	mov ds, word ptr [0500h]	;var1
+ 	 	 	 	;Manual encoding required
+ 7D34  8E	 	 	 	db 8Eh
+ 7D35  1E	 	 	 	db 1Eh
+ 7D36  0500	 	 	 	dw 0500h
+ 	 	 	 	
+ 	 	 	 	;	mov di, word ptr [0502h]	;var2
+ 7D38  8B	 	 	 	db 8Bh
+ 7D39  3E	 	 	 	db 3Eh
+ 7D3A  0502	 	 	 	dw 0502h
+ 	 	 	 	;	mov al, byte ptr [0505h]	;var3 -
+	 	 	 	 1
+ 7D3C  A0	 	 	 	db 0A0h
+ 7D3D  0505	 	 	 	dw 0505h
+ 7D3F  AA	 	 	 	stosb	;store low byte
+ 7D40  CD 20	 	 	 	int 20h	;return to OS
+ 7D42	 	 	 	TEDIT	ENDP
+ 7D42	 	 	 	FRJMP	PROC	NEAR
+ 7D42	 	 	 	j1:
+ 	 	 	 	;	mov es, word ptr [0500h];bring the tran
+	 	 	 	sfer segment into es, var1
+ 7D42  8E	 	 	 	db 8Eh
+ 7D43  06	 	 	 	db 06h
+ 7D44  0500	 	 	 	dw 0500h
+ 	 	 	 	;	mov bx, word ptr [0502h];bring the tran
+	 	 	 	sfer offset into bx, var2
+ 7D46  8B	 	 	 	db 8Bh
+ 7D47  1E	 	 	 	db 1Eh
+ 7D48  0502	 	 	 	dw 0502h
+ 7D4A  06	 	 	 	push es	 	;push new cs onto stack
+ 7D4B  53	 	 	 	push bx	 	;push new ip onto stack
+ 7D4C  CB	 	 	 	db	0CBh	;CB=opcode for far retu
+	 	 	 	rn
+ 	 	 	 	;MASM sucks for far jumps, so manually encoding
+	 	 	 	 the instruction seems 
+ 	 	 	 	;nice, simple and quick way to deal with this f
+	 	 	 	or now! Yay?
+ 7D4D	 	 	 	FRJMP	ENDP
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-8
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7D4D	 	 	 	DUMP 	PROC 	NEAR
+ 	 	 	 	;Takes in var1:var2 as Segment:Offset of byte t
+	 	 	 	o dump. 
+ 	 	 	 	;Destroys DS, SI, AH, BX
+ 7D4D	 	 	 	d1:
+ 	 	 	 	;	mov si, word ptr [0500h]	;var1
+ 	 	 	 	;	mov ds, si
+ 7D4D  8E	 	 	 	db 8Eh
+ 7D4E  1E	 	 	 	db 1Eh
+ 7D4F  0500	 	 	 	dw 0500h
+ 	 	 	 	;	mov si, word ptr [0502h]	;var2
+ 7D51  8B	 	 	 	db 8Bh
+ 7D52  36	 	 	 	db 36h
+ 7D53  0502	 	 	 	dw 0502h
+ 7D55  AC	 	 	 	lodsb	 	;load value at DS:SI in
+	 	 	 	to AL
+ 	 	 	 	 	
+ 7D56  8A D0	 	 	 	mov dl, al	;copy al into dl
+ 7D58  25 00F0	 	 	 	and ax, 00F0h	;get the high nybble of
+	 	 	 	 the digit
+ 7D5B  81 E2 000F	 	 	and dx, 000Fh	;get the low nybble of 
+	 	 	 	the digit
+ 7D5F  B1 04	 	 	 	mov cl, 4	;shift counter
+ 7D61  D3 E8	 	 	 	shr ax, cl	;shift one hex place va
+	 	 	 	lue right
+ 	 	 	 	
+ 	 	 	 	;	mov bp, ax	;mov digit into bp for 
+	 	 	 	the proc
+ 7D63  E8 7D6D R	 	 	call char
+ 	 	 	 	;	mov bp, dx
+ 7D66  8B C2	 	 	 	mov ax, dx
+ 7D68  E8 7D6D R	 	 	call char
+ 7D6B  CD 20	 	 	 	int 20h
+ 	 	 	 	
+ 7D6D	 	 	 	CHAR	PROC	NEAR
+ 	 	 	 	;	lea di, [offset ascii + bp]	;point 
+	 	 	 	to table with bp offset
+ 	 	 	 	;	lodsb	 	;load into al the desir
+	 	 	 	ed char
+ 7D6D  BB 7D1E R	 	 	mov bx, offset ascii
+ 7D70  D7	 	 	 	xlatb
+ 7D71  E8 7DCE R	 	 	call print	;print digit pointed to
+	 	 	 	 by di
+ 7D74  C3	 	 	 	ret
+ 7D75	 	 	 	CHAR	ENDP
+ 7D75	 	 	 	DUMP	ENDP
+ 	 	 	 	
+ 7D75	 	 	 	DISKIO	PROC	NEAR
+ 	 	 	 	;Converts addresses from LBA to CHS addressing 
+	 	 	 	and r/w to/from disk/mem
+ 	 	 	 	;Warning, ax, bx, cx, dx destroyed
+ 	 	 	 	;Return:
+ 	 	 	 	;CL - Sector number, CH - Cylinder number, DH -
+	 	 	 	 Head number
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-9
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 	 	 	 	;----------Reference Equations----------
+ 	 	 	 	;C = LBA / (HPC x SPT)
+ 	 	 	 	;H = (LBA / SPT) mod HPC
+ 	 	 	 	;S = (LBA mod SPT) + 1
+ 	 	 	 	;---------------------------------------
+ 7D75	 	 	 	sw:	 	
+ 7D75  BB 0300	 	 	 	mov bx, 0300h	 	;write subfunct
+	 	 	 	ion for disk writing
+ 7D78  53	 	 	 	push bx	 	 	;save for later
+	 	 	 	, into ah
+ 7D79  EB 04	 	 	 	jmp short s1	 	;jump to progra
+	 	 	 	m ep
+ 7D7B	 	 	 	sr:
+ 7D7B  BB 0200	 	 	 	mov bx, 0200h	 	;read subfuncti
+	 	 	 	on for disk reading
+ 7D7E  53	 	 	 	push bx	 	 	;save for later
+	 	 	 	, into ah
+ 7D7F	 	 	 	s1:	 	 	 	;Program Entry 
+	 	 	 	Point
+ 	 	 	 	;Sector and Head value
+ 	 	 	 	;	mov bp, word ptr [0506h];Save the word 
+	 	 	 	var into bp, var4
+ 7D7F  8B	 	 	 	db 8Bh
+ 7D80  2E	 	 	 	db 2Eh
+ 7D81  0506	 	 	 	dw 0506h
+ 7D83  8B C5	 	 	 	mov ax, bp	 	;mov LBA into a
+	 	 	 	x to get head and sec num
+ 7D85  F6 36 7C18 R	 	 	div byte ptr [sectrc]	;divide ax by t
+	 	 	 	he low byte of sectrc
+ 7D89  FE C4	 	 	 	inc ah	 	 	;increment the 
+	 	 	 	remainder to get sectors
+ 7D8B  8A CC	 	 	 	mov cl, ah	 	;save the remai
+	 	 	 	nder in its ret register
+ 7D8D  32 E4	 	 	 	xor ah, ah	 	;nullify the re
+	 	 	 	mainder for the next part
+ 7D8F  F6 36 7C1A R	 	 	div byte ptr [numhed]	;divide ax by t
+	 	 	 	he low byte of numhed
+ 7D93  8A F4	 	 	 	mov dh, ah	 	;ah is now head
+	 	 	 	. Move into dh
+ 	 	 	 	;Cylinder
+ 7D95  A1 7C1A R	 	 	mov ax, word ptr [numhed]	;mov nu
+	 	 	 	mhead into ax
+ 7D98  F7 26 7C18 R	 	 	mul word ptr [sectrc]	;multiply ax by
+	 	 	 	 sec/trc
+ 	 	 	 	 	 	 	 	;ax contains th
+	 	 	 	e product of the multiplication
+ 	 	 	 	 	 	 	 	;by product. dx
+	 	 	 	 SHOULD be 0, hopefully
+ 7D9C  95	 	 	 	xchg bp, ax	 	;switch bp and 
+	 	 	 	ax so that we can divide them
+ 7D9D  F7 F5	 	 	 	div bp	 	 	;Divide them he
+	 	 	 	re!
+ 7D9F  8A E8	 	 	 	mov ch, al	 	;Save the resul
+	 	 	 	t in ch
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-10
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 	 	 	 	
+ 7DA1  BE 0010	 	 	 	mov si, 10h	 	;use si as a fa
+	 	 	 	il loop counter
+ 	 	 	 	;	mov es, word ptr [0500h] ;move segment 
+	 	 	 	into seg reg for int13h, var1
+ 7DA4  8E	 	 	 	db 8Eh
+ 7DA5  06	 	 	 	db 06h
+ 7DA6  0500	 	 	 	dw 0500h
+ 	 	 	 	;	mov bx, word ptr [0502h] ;move offset i
+	 	 	 	nto reg for int13h, var2
+ 7DA8  8B	 	 	 	db 8Bh
+ 7DA9  1E	 	 	 	db 1Eh
+ 7DAA  0502	 	 	 	dw 0502h
+ 	 	 	 	;ADDRESSES INCREMENTED BY 1 TO ALLOW TYPING OF 
+	 	 	 	2 RATHER THAN 4 DIGITS!
+ 	 	 	 	;	mov dl, byte ptr [0505h] ;move drive nu
+	 	 	 	mber into reg for int13h, var3
+ 7DAC  8A	 	 	 	db 8Ah
+ 7DAD  16	 	 	 	db 16h
+ 7DAE  0505	 	 	 	dw 0505h
+ 7DB0  58	 	 	 	pop ax	 	 	;bring subfunct
+	 	 	 	ion into ah
+ 	 	 	 	;	mov al, byte ptr [0509h] ;move number o
+	 	 	 	f sectors into al, var5
+ 7DB1  A0	 	 	 	db 0A0h
+ 7DB2  0509	 	 	 	dw 0509h
+ 7DB4  8B E8	 	 	 	mov bp, ax	 	;save to bp to 
+	 	 	 	use in loop
+ 7DB6	 	 	 	s2:
+ 7DB6  8B C5	 	 	 	mov ax, bp	 	;bring back aft
+	 	 	 	er disk reset
+ 7DB8  CD 13	 	 	 	int 13h	 	 	;fire away disk
+	 	 	 	 IO!
+ 7DBA  73 10	 	 	 	jnc s3	 	 	;disk activity 
+	 	 	 	was a success! Exit.
+ 	 	 	 	
+ 7DBC  32 E4	 	 	 	xor ah, ah	 	;Disk Reset fun
+	 	 	 	ction
+ 7DBE  CD 13	 	 	 	int 13h	 	 	;Reset the disk
+ 7DC0  4E	 	 	 	dec si	 	 	;decrement the 
+	 	 	 	counter
+ 7DC1  75 F3	 	 	 	jnz s2	 	 	;loop till si i
+	 	 	 	s zero or the function works
+ 	 	 	 	
+ 7DC3  B0 58	 	 	 	mov al, "X"	 	;Error indicato
+	 	 	 	r symbol, program failed
+ 7DC5  E8 7DCE R	 	 	call print	 	;Print char
+ 7DC8  33 C0	 	 	 	xor ax, ax	 	;Int 16 subfunc
+	 	 	 	tion
+ 7DCA  CD 16	 	 	 	int 16h	 	 	;Await that key
+	 	 	 	press!
+ 7DCC	 	 	 	s3:	 	
+ 7DCC  CD 20	 	 	 	int 20h	 	 	;Use OS API fun
+	 	 	 	ction :D 
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	1-11
+	 	 	 	 	 	 	 	01-01-80    
+
+
+ 7DCE	 	 	 	DISKIO	ENDP
+ 7DCE	 	 	 	PRINT	PROC	NEAR
+ 	 	 	 	;Assume char to be printed is in AL
+ 7DCE  B4 0E	 	 	 	mov ah, 0Eh	 	;Int 10h Functi
+	 	 	 	on
+ 7DD0  BB 0007	 	 	 	mov bx, 0007h	 	;bh=page number
+	 	 	 	, bl=colour/attribs
+ 7DD3  CD 10	 	 	 	int 10h	 	 	;call function
+ 7DD5  C3	 	 	 	ret	 	 	;return to call
+	 	 	 	er
+ 7DD6	 	 	 	PRINT	ENDP
+ 	 	 	 	
+ 7DFE	 	 	 	 	ORG 	07DFEh	;07C00h + 01FEh bytes 
+ 7DFE  55	 	 	    	db 	055h	;Bootsector signature
+ 7DFF  AA	 	 	    	db 	0AAh
+ 7E00	 	 	 	CODE	ENDS
+ 	 	 	 	 	END	prog_init
+
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	Symbols
+	 	 	 	-1
+	 	 	 	 	 	 	 	01-01-80    
+
+
+Segments and Groups:
+
+	 	N a m e	 	 	Size	Align	Combine	Class
+
+CODE . . . . . . . . . . . . . .	7E00	PARA  	NONE	
+
+Symbols:            
+
+	 	N a m e	 	 	Type	Value	Attr         
+
+ASCII. . . . . . . . . . . . . .	L BYTE 	7D1E	CODE
+ASCIIL . . . . . . . . . . . . .	Number	0013	
+BYPSEC . . . . . . . . . . . . .	L NEAR 	7C0B	CODE
+CHAR . . . . . . . . . . . . . .	N PROC	7D6D	CODE	Length =0008
+CTRLKEY. . . . . . . . . . . . .	L NEAR 	7CBB	CODE
+D1 . . . . . . . . . . . . . . .	L NEAR 	7D4D	CODE
+DISKIO . . . . . . . . . . . . .	N PROC	7D75	CODE	Length =0059
+DUMP . . . . . . . . . . . . . .	N PROC	7D4D	CODE	Length =0028
+EPARSE . . . . . . . . . . . . .	L NEAR 	7CC7	CODE
+EXTSIG . . . . . . . . . . . . .	L NEAR 	7C26	CODE
+FAIL . . . . . . . . . . . . . .	L NEAR 	7C7B	CODE
+FATSEC . . . . . . . . . . . . .	L NEAR 	7C16	CODE
+FRJMP. . . . . . . . . . . . . .	N PROC	7D42	CODE	Length =000B
+FSTYPE . . . . . . . . . . . . .	L NEAR 	7C36	CODE
+J1 . . . . . . . . . . . . . . .	L NEAR 	7D42	CODE
+K0 . . . . . . . . . . . . . . .	L NEAR 	7C95	CODE
+K1 . . . . . . . . . . . . . . .	L NEAR 	7C98	CODE
+K4 . . . . . . . . . . . . . . .	L NEAR 	7CD5	CODE
+K5 . . . . . . . . . . . . . . .	L NEAR 	7CDD	CODE
+KEYB . . . . . . . . . . . . . .	N PROC	7C98	CODE	Length =002F
+LDRVNU . . . . . . . . . . . . .	L NEAR 	7C24	CODE
+LST. . . . . . . . . . . . . . .	L BYTE 	7D19	CODE
+LSTL . . . . . . . . . . . . . .	Number	0005	
+MAIN . . . . . . . . . . . . . .	N PROC	7C00	CODE	Length =0134
+MEDESC . . . . . . . . . . . . .	L NEAR 	7C15	CODE
+NORTDR . . . . . . . . . . . . .	L NEAR 	7C11	CODE
+NOSECT . . . . . . . . . . . . .	L NEAR 	7C13	CODE
+NSECFS . . . . . . . . . . . . .	L NEAR 	7C20	CODE
+NUMFAT . . . . . . . . . . . . .	L NEAR 	7C10	CODE
+NUMHED . . . . . . . . . . . . .	L NEAR 	7C1A	CODE
+NUMHID . . . . . . . . . . . . .	L NEAR 	7C1C	CODE
+OSNAME . . . . . . . . . . . . .	L NEAR 	7C03	CODE
+P1 . . . . . . . . . . . . . . .	L NEAR 	7CCE	CODE
+PARSE. . . . . . . . . . . . . .	L NEAR 	7CCD	CODE
+PRINT. . . . . . . . . . . . . .	N PROC	7DCE	CODE	Length =0008
+PROG_INIT. . . . . . . . . . . .	L NEAR 	7C00	CODE
+PROG_SEL . . . . . . . . . . . .	L NEAR 	7D02	CODE
+PROMPT . . . . . . . . . . . . .	L BYTE 	7D31	CODE
+PWAY . . . . . . . . . . . . . .	N PROC	7CC7	CODE	Length =003B
+RES1 . . . . . . . . . . . . . .	L NEAR 	7C25	CODE
+RESSEC . . . . . . . . . . . . .	L NEAR 	7C0E	CODE
+S1 . . . . . . . . . . . . . . .	L NEAR 	7D7F	CODE
+S2 . . . . . . . . . . . . . . .	L NEAR 	7DB6	CODE
+ IBM Personal Computer MACRO Assembler   Version 2.00  	Page	Symbols
+	 	 	 	-2
+	 	 	 	 	 	 	 	01-01-80    
+
+
+S3 . . . . . . . . . . . . . . .	L NEAR 	7DCC	CODE
+SECPCL . . . . . . . . . . . . .	L NEAR 	7C0D	CODE
+SECTRC . . . . . . . . . . . . .	L NEAR 	7C18	CODE
+SERNUM . . . . . . . . . . . . .	L NEAR 	7C27	CODE
+SR . . . . . . . . . . . . . . .	L NEAR 	7D7B	CODE
+START. . . . . . . . . . . . . .	L NEAR 	7C3E	CODE
+SW . . . . . . . . . . . . . . .	L NEAR 	7D75	CODE
+TEDIT. . . . . . . . . . . . . .	N PROC	7D34	CODE	Length =000E
+VOLLBL . . . . . . . . . . . . .	L NEAR 	7C2B	CODE
+Z1 . . . . . . . . . . . . . . .	L NEAR 	7C58	CODE
+Z2 . . . . . . . . . . . . . . .	L NEAR 	7C60	CODE
+Z21. . . . . . . . . . . . . . .	L NEAR 	7C66	CODE
+Z3 . . . . . . . . . . . . . . .	L NEAR 	7C82	CODE
+Z4 . . . . . . . . . . . . . . .	L NEAR 	7C8A	CODE
+
+48382 Bytes free   
+
+Warning Severe
+Errors	Errors 
+0	0

@@ -1,0 +1,96 @@
+M/CP v2.0
+
+It's back! Version 2 of the Minimal Control Program is here! This time with all new updated features! Welcome to the world of unfriendly 
+computing with M/CP, the smallest operating system you didn't know you needed!
+----------------------------------------------------------------------------------------------------------------------------------------
+Whats new?
+
+The M/CP project has now developed truly into a small control program that fits onto the bootsector of any diskette, 
+with over 40 bytes to spare! Even better, with 5 built in programs, this bootsector control program can display and edit whats in 
+memory, read and write from any BIOS visible drives to and from memory, and finally transfer control to any location in memory! And 
+once youre done, should you wish to return to the Minimal Control Program, all you need to do is call the one API function, Int 20h 
+to transfer back to the control program command line! Of course with the standard caveats of it being a real mode operating system 
+(ie please dont overwrite the area between 0000:7E00h and 0000:7E00h or hook Int 20h badly).
+----------------------------------------------------------------------------------------------------------------------------------------
+Feature guide
+
+Five programs are included with M/CP:
+-(d)ump
+
+-(e)dit
+
+-(l)oad
+
+-(w)rite
+
+-(j)ump
+
+To use these programs, you must type the program name (indicated by the lower case letter in the brackets) followed by a space 
+(mandatory, you will not be allowed to proceed until the space key is pressed) and then proceed to type the command line arguments 
+for each function as described below. Please note, if you make a mistake you are free to use the backspace key to delete entered 
+values though this might not necessarily be reflected in the command line. This will be rectified.
+If you type a key that is not a control key (Enter, space, backspace) or a lowercase hexadecimal digit, the computer will beep and 
+will reset. This can be used also to reset the machine in the event of a mistake in typing in the command line.
+----------------------------------------------------------------------------------------------------------------------------------------
+Guide to internal programs:
+
+Below you will see a reference guide on how to use the control programs internal commands. Each argument is seperated by a space and 
+is indicated as follows [Usage,x] with Usage indicating what the meaning of the value that should go there is and x indicating up to 
+how many digits this value can be. Remember all values are given in hexadecimal with alphabetical digits given in lowercase!!
+
+Please note that for programs the load and write programs, I use an LBA addressing scheme that addresses CHS=(0,0,0) as LBA=0.
+
+The DUMP program.
+On the command line type the following:
+d [Segment, 4] [Offset, 4]
+
+The EDIT program.
+On the command line type the following:
+e [Segment, 4] [Offset, 4] [Repleacement byte, 2]
+
+The LOAD program.
+On the command line type the following:
+l [Segment, 4] [Offset, 4] [BIOS Drive byte code, 2] [LBA number, 4] [Number of sectors to read, 2]
+
+The WRITE program.
+On the command line type the following:
+w [Segment, 4] [Offset, 4] [BIOS Drive byte code, 2] [LBA number, 4] [Number of sectors to write, 2]
+
+The JUMP program.
+On the command line type the following:
+j [Segment, 4] [Offset, 4]
+
+If you wish to enter the entry 0000 for any of the entries you MAY just press the space key. Also, you MUST type in all the digits as 
+indicated, otherwise numbers will be shifted. I leave it to you, the user, to figure out how they are shifted! 
+
+----------------------------------------------------------------------------------------------------------------------------------------
+Guide to API:
+
+M/CP has a simple API. There is one function.
+
+Int 20h - Return back to the operating system. There is no exit code is handling but you dont need to be in the same segments, as the 
+reset code handles the setting or resetting of the segment registers itself.
+----------------------------------------------------------------------------------------------------------------------------------------
+Warning to users of non 5.25" floppy drives:
+
+The program contains a BPB (and an extended BPB which may be removed in future versions) to maintain a FAT readable diskette or 
+drive even whilst having this program in the bootsector. Hence, because this was written for and tested on a 5.25" drive, the BPB values 
+are designed for it.
+
+If you wish to use it on a non 5.25" drive or drive image YOU MUST CHANGE THE BPB variable sectrc (sectors/track) to the appropriate
+number for your media. For 1.44Mb 3.5" diskettes for example sectrc becomes 0012h.
+
+Please then reassemble the .asm file as needed. I may provide a 3.5" version in the future.
+----------------------------------------------------------------------------------------------------------------------------------------
+Final message:
+
+The source code is heavily commented, so feel free to do with it whatever you will, but if you intend to use any part of my code as part 
+of a project, please acknowledge me as the original writer of whatever code you wish to use.
+Im more than happy to answer any questions about the code and my other projects. You can contact me via my reddit, u/ylli122 or via 
+email (although, try not to spam me please), at ybuzoku@hotmail.co.uk
+Many thanks to everyone that's supported me so far!
+
+PS. There is a lot of commented and manually encoded commands in the source code. This was done a bit out of desparation and a bit just 
+because it is a quick fix since MASM 2.0 wasnt assembling the instructions correctly. I'll look into correcting this later as well as 
+a few nicites. I am also considering adding a FAT driver but we shall see.
+This was written on an IBM PC XT with 256Kb of RAM, assembled and linked with MASM and LINK 2.0.
