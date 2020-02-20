@@ -10,7 +10,7 @@ with over 40 bytes to spare! Even better, with 5 built in programs, this bootsec
 memory, read and write from any BIOS visible drives to and from memory, and finally transfer control to any location in memory! And 
 once youre done, should you wish to return to the Minimal Control Program, all you need to do is call the one API function, Int 20h 
 to transfer back to the control program command line! Of course with the standard caveats of it being a real mode operating system 
-(ie please dont overwrite the area between 0000:7E00h and 0000:7E00h or hook Int 20h badly).
+(ie please dont overwrite the area between 0000:7C00h and 0000:7E00h or hook Int 20h badly).
 ----------------------------------------------------------------------------------------------------------------------------------------
 Feature guide
 
