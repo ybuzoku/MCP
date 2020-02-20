@@ -1,12 +1,9 @@
 ;Version 2, Date of file write start: 11/01/2020
 ;NAME OF PROJECT: MCP - Minimal Control Program
 ;NAME OF AUTHOR: Yll Buzoku 
-;Loads an application file of a disk and transfers control to it!
-;More or less a bootsector program loader
 ;Remains in real mode, end user application must jump beyond.
 ;DOES NOT SET A20!
-;Is compatible with the IBM PC  
-;PLEASE BE CAREFUL WHEN INPUTTING VALUES, THERE IS NO BOUNDS CHECKING!
+;Is compatible with the IBM PC
 
 CODE 	SEGMENT
 	ASSUME	CS:CODE, DS:CODE, ES:CODE, SS:CODE
@@ -47,10 +44,8 @@ prog_init:
 ;---------------------------------------------------------------------------------------------------
 
 start: 
-	cld			;Clear Direction flag	
-;Debug mode
-;	jmp short z1	; TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
-;Debug mode
+	cld			;Clear Direction flag
+
 	cli			;Pause external interrupts
 	xor ax, ax		;Nullify ax
 	mov ss, ax		;Set the stack segment to null
@@ -122,8 +117,7 @@ k1:
 	mov cx, asciil + 1	;table length + 1 for scasb reasons, grr
 	repne scasb		;Loop and compare to find a char from table
 	jnz fail		;Char overflow, doesnt match to anything in list
-
-;	lea ax, [di - bx]	;Calculate the offset into the table
+	
 	dec di			;Dec becuase scas overincrements di
 	sub di, bx		;subtract from di the base of the table
 	mov ax, di		;ax now contains the offset into the table
@@ -135,20 +129,26 @@ k1:
 ctrlkey:
 	dec cx			;cx = 1, enter key pressed
 	jz eparse
-	dec cx
+	dec cx			;cx = 2, space key pressed
 	jz parse
-;cx = 0, backspace
+;-----cx = 3, backspace-----
 	call print		;print the backspace char
 	dec di			;return to previous char position in buffer
 	jmp k1
 KEYB	ENDP
 PWAY	PROC	NEAR
-;This will take whats in the buffer and parse it, then zero the buffer
-;in prep for the next var entry. Zeroing allows for less than a full
-;address or number to be entered!
+;---------------------------------------
+;This will take whats in the buffer and 
+;parse it, then zero the buffer in prep 
+;for the next var entry. Zeroing allows 
+;for less than a full address or number 
+;to be entered!
+;---------------------------------------
+;---------------------------------------
+;Push the desired value onto the stack,
+;but use the real value of bp in proc :D
+;---------------------------------------
 eparse:
-;		Push the desired value onto the stack,
-;		but use the real value of bp in proc :D
 	mov ax, 4
 	push ax	
 	jmp short p1
@@ -194,7 +194,6 @@ k5:
 PWAY	ENDP
 
 prog_sel:
-;	int 03h		;breakpoint 
 ;	mov al, byte ptr [050Eh]	;prog
 ;MASM 2.0 at it again!
 	db 0A0h
@@ -232,6 +231,9 @@ MAIN	ENDP
 
 ;-------------------------------Procs------------------------------
 TEDIT	PROC	NEAR
+;---------------------------------------
+;Edits a byte in memory from the cmd line
+;---------------------------------------
 ;	mov ds, word ptr [0500h]	;var1
 ;Manual encoding required
 	db 8Eh
@@ -249,6 +251,9 @@ TEDIT	PROC	NEAR
 	int 20h	;return to OS
 TEDIT	ENDP
 FRJMP	PROC	NEAR
+;---------------------------------------
+; (Far) Jump to subroutine in memory 
+;---------------------------------------
 j1:
 ;	mov es, word ptr [0500h];bring the transfer segment into es, var1
 	db 8Eh
@@ -261,12 +266,16 @@ j1:
 	push es		;push new cs onto stack
 	push bx		;push new ip onto stack
 	db	0CBh	;CB=opcode for far return
+	
 ;MASM sucks for far jumps, so manually encoding the instruction seems 
 ;nice, simple and quick way to deal with this for now! Yay?
+
 FRJMP	ENDP
 DUMP 	PROC 	NEAR
-;Takes in var1:var2 as Segment:Offset of byte to dump. 
-;Destroys DS, SI, AH, BX
+;---------------------------------------
+; Takes in var1:var2 as Segment:Offset 
+; of byte to dump.
+;---------------------------------------
 d1:
 ;	mov si, word ptr [0500h]	;var1
 ;	mov ds, si
@@ -284,17 +293,13 @@ d1:
 	and dx, 000Fh	;get the low nybble of the digit
 	mov cl, 4	;shift counter
 	shr ax, cl	;shift one hex place value right
-
-;	mov bp, ax	;mov digit into bp for the proc
+	
 	call char
-;	mov bp, dx
 	mov ax, dx
 	call char
 	int 20h
 
 CHAR	PROC	NEAR
-;	lea di, [offset ascii + bp]	;point to table with bp offset
-;	lodsb		;load into al the desired char
 	mov bx, offset ascii
 	xlatb
 	call print	;print digit pointed to by di
@@ -303,10 +308,10 @@ CHAR	ENDP
 DUMP	ENDP
 
 DISKIO	PROC	NEAR
-;Converts addresses from LBA to CHS addressing and r/w to/from disk/mem
-;Warning, ax, bx, cx, dx destroyed
-;Return:
-;CL - Sector number, CH - Cylinder number, DH - Head number
+;---------------------------------------
+;Converts addresses from LBA to CHS 
+;addressing and r/w to/from disk/mem
+;---------------------------------------
 ;----------Reference Equations----------
 ;C = LBA / (HPC x SPT)
 ;H = (LBA / SPT) mod HPC
@@ -327,7 +332,10 @@ s1:				;Program Entry Point
 	dw 0506h
 	mov ax, bp		;mov LBA into ax to get head and sec num
 	div byte ptr [sectrc]	;divide ax by the low byte of sectrc
+	
 	inc ah			;increment the remainder to get sectors
+				;Could perhaps save a byte if I can inc ax?
+				
 	mov cl, ah		;save the remainder in its ret register
 	xor ah, ah		;nullify the remainder for the next part
 	div byte ptr [numhed]	;divide ax by the low byte of numhed
@@ -378,7 +386,9 @@ s3:
 	int 20h			;Use OS API function :D 
 DISKIO	ENDP
 PRINT	PROC	NEAR
-;Assume char to be printed is in AL
+;---------------------------------------
+; Char to be printed is in AL
+;---------------------------------------
 	mov ah, 0Eh		;Int 10h Function
 	mov bx, 0007h		;bh=page number, bl=colour/attribs
 	int 10h			;call function
