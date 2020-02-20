@@ -12,6 +12,16 @@ memory! And once youre done, should you wish to return to the Minimal Control Pr
 function, Int 20h to transfer back to the control program command line! Of course with the standard caveats of it being a real 
 mode operating system (ie please dont overwrite the area between 0000:7C00h and 0000:7E00h or hook Int 20h badly).
 ------------------------------------------------------------------------------------------------------------------------------
+System requirements
+
+Running M/CP wont be too much of a problem for most users since 1983. 
+The minimum requirements are: 
+- An IBM PC or with PC with a compatible BIOS
+- A minimum of 32Kb of RAM (due to the loading of the boot sector at 07C00h)
+- An MDA/CGA/EGA/VGA or compatible card
+- A diskette drive (by default, the provided .BIN file will work on 5.25" 360Kb Floppy drives, you will need to reassemble for 
+  non 5.25" Floppy drives. Details below).
+------------------------------------------------------------------------------------------------------------------------------
 Feature guide
 
 Five programs are included with M/CP:
