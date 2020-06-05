@@ -86,11 +86,13 @@ Warning to users of non 5.25" floppy drives:
 
 The program contains a BPB (and an extended BPB which may be removed in future versions) to maintain a FAT readable diskette 
 or drive even whilst having this program in the bootsector. Hence, because this was written for and tested on a 5.25" drive,
-the BPB values are designed for it. This can also be done by hex editing the binary file. Simply change the word at offset 
-Sector offset 18h (BPB offset 0Dh) from 0009h to 0012h.
+the BPB values are designed for it. 
 
 If you wish to use it on a non 5.25" drive or drive image YOU MUST CHANGE THE BPB variable sectrc (sectors/track) to the 
-appropriate number for your media. For 1.44Mb 3.5" diskettes for example sectrc becomes 0012h.
+appropriate number for your media. For 1.44Mb 3.5" diskettes for example sectrc becomes 0012h. This can be done by hex 
+editing the binary file or reassembling from the the source. 
+If you choose to reassemble, please change the variable sectrc from the word 0009h to 0012h. If you hex edit simply change the 
+word at sector offset 18h (BPB offset 0Dh) from 0009h to 0012h.
 
 Please then reassemble the .asm file as needed. I may provide a 3.5" version in the future.
 ------------------------------------------------------------------------------------------------------------------------------
