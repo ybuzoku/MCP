@@ -1,6 +1,6 @@
 M/CP v2.0
 
-It's back! Version 2 of the Minimal Control Program is here! This time with all-new updated features! Welcome to the world of
+It's back! Version 2 of the Minimal Control Program is here! This time with all new updated features! Welcome to the world of
 unfriendly computing with M/CP, the smallest operating system you didn't know you needed!
 ------------------------------------------------------------------------------------------------------------------------------
 Whats new?
@@ -96,11 +96,10 @@ word at sector offset 18h (BPB offset 0Dh) from 0009h to 0012h.
 
 Please then reassemble the .asm file as needed. I may provide a 3.5" version in the future.
 ------------------------------------------------------------------------------------------------------------------------------
-Final message:
+Final notes:
 
-The source code is heavily commented, so feel free to do with it whatever you will, but if you intend to use any part of my 
-code as part of a project, please acknowledge me as the original writer of whatever code you wish to use.
-I'm more than happy to answer any questions about the code and my other projects. You can contact me via my reddit, u/ylli122 
+The source code is heavily commented, so it should be fairly easy to understand how it works.
+I'm more than happy to answer any questions about the code and my other projects. You can contact me via my reddit account, u/ylli122 
 or via email (although, try not to spam me please), at ybuzoku@hotmail.co.uk
 Many thanks to everyone that's supported me so far!
 
